@@ -7,6 +7,10 @@ Created on Thu May 25 10:59:52 2023
 """
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 #import pandas as pd
 
@@ -17,7 +21,7 @@ driver_path = '/usr/local/bin/chromedriver'  # Substitua pelo caminho real do dr
 driver = webdriver.Chrome(executable_path=driver_path)
 
 # Navegar para a página de vagas do Glassdoor
-url = 'https://www.clickbus.com.br/onibus/belo-horizonte-mg-todos/sao-paulo-sp-todos'  # Substitua pelo URL real do Glassdoor
+url = 'https://www.clickbus.com.br/' # Substitua pelo URL real do Glassdoor
 driver.get(url)
 
 # Esperar até que as vagas sejam carregadas
@@ -113,31 +117,57 @@ for container in containers:
         arrival_location
         )
 
-
-
-    
-
-# Extrair o número usando expressão regular
-numero_match = re.search(r"\+(\d+)", string_horario)
-numero = numero_match.group(1) if numero_match else ""
-
-    print(price)
-    
-
-
-# Criar uma lista para armazenar os dados das vagas
-dados_vagas = []
-
-# Iterar sobre as vagas encontradas e extrair as informações desejadas
-for vaga in vagas:
-    titulo = vaga.find('a', class_='jobLink').text
-    empresa = vaga.find('a', class_='jobLink').get('href')
-    localizacao = vaga.find('span', class_='loc').text
-
-    # Adicionar as informações da vaga à lista de dados
-    dados_vagas.append({'Título': titulo, 'Empresa': empresa, 'Localização': localizacao})
-
-
+def click_bus_scrape(
+        departure_location_list, arrival_location_list, 
+        departure_date_list, arrival_date_list=None, driver=None, 
+        driver_path = '/usr/local/bin/chromedriver' # Substitua pelo caminho real do driver
+    ):
     
     
+    
+    if not driver:
+        # Criar uma instância do WebDriver
+        driver = webdriver.Chrome(executable_path=driver_path)
+
+    url = 'https://www.clickbus.com.br/' 
+    driver.get(url)
+
+    driver.implicitly_wait(10)  # Aguardar até 10 segundos (pode ser ajustado conforme necessário)
+    
+    for departure_location, arrival_location, departure_date, arrival_date in zip(departure_location_list, arrival_location_list, departure_date_list, arrival_date_list):
+        click_bus_search(departure_location, arrival_location, departure_date, arrival_date, driver)
+
+
+def click_bus_search(departure_location, arrival_location, departure_date_list, arrival_date_list, driver):
+    input_origin_element = driver.find_element(By.XPATH, '//*[@id="origin"]')               
+    input_arrival_element = driver.find_element(By.XPATH, '//*[@id="destination"]')
+    input_departure_date_element = driver.find_element(By.XPATH, '//*[@id="departure-date"]')
+    
+    # selecionando primeira cidade de origem
+    input_origin_element.send_keys(departure_location)
+    wait = WebDriverWait(driver, 3)
+    wait.until(EC.presence_of_element_located((By.ID, 'place-input-ul')))    
+    sugestoes_div = driver.find_element(By.ID, 'place-input-ul')
+    primeiro_a_element = sugestoes_div.find_element(By.TAG_NAME, 'a')
+    primeiro_a_element.click()    
+    
+    # selecionando primeira cidade de destino
+    input_arrival_element.send_keys(arrival_location)
+    wait = WebDriverWait(driver, 3)
+    wait.until(EC.presence_of_element_located((By.ID, 'place-input-ul')))    
+    sugestoes_div = driver.find_element(By.ID, 'place-input-ul')
+    primeiro_a_element = sugestoes_div.find_element(By.TAG_NAME, 'a')
+    primeiro_a_element.click()    
+    
+    # selecionando data de ida
+    input_departure_date_element.send_keys(departure_date)
+    
+    
+input_destination_element = self.driver.find_element(By.XPATH, '//*[@id="destination"]')
+input_departure_date_element = self.driver.find_element(By.XPATH, '//*[@id="departure-date"]')
+html = driver.page_source
+# Criar o objeto BeautifulSoup
+soup = BeautifulSoup(html, 'html.parser')
+search_results = soup.find(attrs={"data-testid": "search-results"})
+ 
     
