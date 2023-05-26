@@ -72,14 +72,15 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import pdb
 import re
 from datetime import datetime, timedelta
 
 class ClickBusScraper:
+    # Atualizar o driver_path de acordo com o caminho local para o chromedriver
     def __init__(self, driver_path='/usr/local/bin/chromedriver'):
         self.driver_path = driver_path
         self.driver = None
+        # Experessões regulares que serão úteis para encontrar elementos html mais tarde
         self.company_regex = re.compile(r"\w*company")
         self.price_regex = re.compile(r"\w*price")
         self.hour_regex = re.compile(r"\w*hour")
@@ -89,7 +90,6 @@ class ClickBusScraper:
         if arrival_date_list is None:
             arrival_date_list = ['' for _ in range(len(departure_date_list))]
         
-        
         scrapping_results = []
         for departure_location, arrival_location, departure_date, arrival_date in zip(departure_location_list, arrival_location_list, departure_date_list, arrival_date_list):
             self._search(departure_location, arrival_location, departure_date, arrival_date)
@@ -98,37 +98,46 @@ class ClickBusScraper:
 
         self._quit_driver()
         
-        return(scrapping_results)
+        return scrapping_results
 
+    # Iniciando o chromedriver
     def _initialize_driver(self):
         if not self.driver:
             self.driver = webdriver.Chrome(executable_path=self.driver_path)
 
+    # Encerrando o chromedriver
     def _quit_driver(self):
         if self.driver:
             self.driver.quit()
     
+    # Abrindo a página do clickbus
     def _open_clickbus_site(self):
         self._initialize_driver()
         if self.driver.current_url != 'https://www.clickbus.com.br/':
             self.driver.get('https://www.clickbus.com.br/')
             self.driver.implicitly_wait(10)
     
+    # Realizando a pesquisa dado na página inicial do ClickBus
     def _search(self, departure_location, arrival_location, departure_date, arrival_date):
         self._open_clickbus_site()
         
+        # Encontrar elementos de entrada
         input_origin_element = self.driver.find_element(By.XPATH, '//*[@id="origin"]')
         input_arrival_element = self.driver.find_element(By.XPATH, '//*[@id="destination"]')
         input_departure_date_element = self.driver.find_element(By.XPATH, '//*[@id="departure-date"]')
         
+        # Preencher informações de origem e destino
         self._select_location(input_origin_element, departure_location)
         self._select_location(input_arrival_element, arrival_location)
 
+        # Preencher data de partida
         input_departure_date_element.send_keys(departure_date)
         
+        # Clicar no botão de pesquisa
         search_button = self.driver.find_element(By.ID, 'search-box-button')
         search_button.click()
-
+        
+    # Scraping os resultados da pesquisa
     def _scrape_search_result(self):
         html = self.driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
@@ -145,9 +154,11 @@ class ClickBusScraper:
             'departure_location': []
         }
         for container in containers:
+            # Obter o nome da empresa
             company_element = container.find(class_=self.company_regex)
             company_name = company_element.get('data-content')
 
+            # Obter preços (tanto de promoção quanto sem promoção)
             price_element = container.find(class_=self.price_regex)
             promotion_element = price_element.find('span', {'data-testid': 'is-promotion'})
             no_promotion_element = price_element.find('span', {'data-testid': 'is-not-promotion'})
@@ -161,9 +172,8 @@ class ClickBusScraper:
             no_promotion_text = no_promotion_element.get_text(strip=True)
             no_promotion_price = self._get_number_from_price(no_promotion_text)
             
-
+            # Obter informações de data e hora de partida e retorno
             date_element = container.find(class_=self.hour_regex)
-
             departure_element = date_element.find("time", class_="departure-time")
             departure_date_string = departure_element.get('data-date')
             departure_date = datetime.strptime(departure_date_string, "%Y-%m-%d")
@@ -177,12 +187,14 @@ class ClickBusScraper:
             return_date_unformatted = departure_date + timedelta(days=plus_days)
             return_date = return_date_unformatted.strftime("%Y-%m-%d")
 
+            # Obter informações de localização
             location_element = container.find(class_=re.compile(r"\w*bus-station"))
             departure_location_element = location_element.find(class_='station-departure')
             departure_location = departure_location_element.get_text(strip=True)
             arrival_location_element = location_element.find(class_='station-arrival')
             arrival_location = arrival_location_element.get_text(strip=True)
             
+            # Adicionar resultados à estrutura de dados
             results['company_name'].append(company_name)
             results['no_promotion_price'].append(no_promotion_price)
             results['promotion_price'].append(promotion_price)
@@ -204,6 +216,7 @@ class ClickBusScraper:
         
     def _get_number_from_price(self, price_text):
         return float(price_text.replace('R$', '').replace('\xa0', '').replace(",", "."))
+
 
 
 Teste = ClickBusScraper()
