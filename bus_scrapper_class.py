@@ -1,78 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May 25 11:16:09 2023
-
-@author: vitor
-"""
-
-# from selenium import webdriver
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.common.keys import Keys
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from bs4 import BeautifulSoup
-
-# class BusScrapper:
-#     def __init__(
-#             self, departure_location_list, arrival_location_list, 
-#             departure_date_list, arrival_date_list=None, driver=None
-#     ):
-#         self.departure_location_list = departure_location_list
-#         self.arrival_location_list = arrival_location_list
-#         self.departure_date_list = departure_date_list
-#         self.arrival_date_list = arrival_date_list
-#         if not driver:
-#             driver_path = '/usr/local/bin/chromedriver'  # Substitua pelo caminho real do driver
-#             # Criar uma instância do WebDriver
-#             self.driver = webdriver.Chrome(executable_path=driver_path)
-#         else:
-#             self.driver = driver
-    
-#     def scrape(self,
-#     sites = ['Quero Passagem', 'ClickBus']
-#     ):
-       
-#         for site in sites:
-#             if site == 'Quero Passagem':
-#                 self.quero_passagem_scrape()
-#             if site == 'ClickBus':
-#                 self.click_bus_scrape()
-                
-#     def click_bus_scrape(self):
-#         url = 'https://www.clickbus.com.br/'
-#         input_origin_element = self.driver.find_element(By.XPATH, '//*[@id="origin"]')
-#         input_destination_element = self.driver.find_element(By.XPATH, '//*[@id="destination"]')
-#         input_departure_date_element = self.driver.find_element(By.XPATH, '//*[@id="departure-date"]')
-#         for departure_location in departure_location_list:
-            
-
-        
-          
-                
-#     def quero_passagem_scrape(self):    
-#         url = 'https://www.clickbus.com.br/'
-#         input_origin_element = self.driver.find_element(By.XPATH, '//*[@id="origin"]')
-#         input_destination_element = self.driver.find_element(By.XPATH, '//*[@id="search_destino"]')
-#         input_departure_date_element = self.driver.find_element(By.XPATH, '//*[@id="departure-date"]')
-        
-#         pass
-    
-# departure_location_list = ['Belo Horizonte']
-# arrival_location_list = ['Rio de Janeiro']
-# departure_date_list = ['26/07/2023']
-
-# myScraper = BusScrapper(departure_location_list, arrival_location_list, departure_date_list)
-
-
-
+import re
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import re
 from datetime import datetime, timedelta
 
 class ClickBusScraper:
@@ -147,6 +78,7 @@ class ClickBusScraper:
             'company_name': [],
             'promotion_price': [],
             'no_promotion_price': [],
+            'departure_date': [],
             'departure_time': [],
             'return_time': [],
             'return_date': [],
@@ -199,6 +131,7 @@ class ClickBusScraper:
             results['no_promotion_price'].append(no_promotion_price)
             results['promotion_price'].append(promotion_price)
             results['departure_time'].append(departure_time)
+            results['departure_date'].append(departure_date)
             results['return_time'].append(return_time)
             results['return_date'].append(return_date)
             results['arrival_location'].append(arrival_location)
@@ -219,13 +152,13 @@ class ClickBusScraper:
 
 
 
-Teste = ClickBusScraper()
+# Teste = ClickBusScraper()
 
 
-departure_location_list = ['Belo Horizonte', 'Belo Horizonte']
-arrival_location_list = ['São Paulo', 'Rio de Janeiro']
-departure_date_list = ['27/05/2023', '28/06/2023']
-result = Teste.scrape(departure_location_list, arrival_location_list, departure_date_list)
+# departure_location_list = ['Belo Horizonte', 'Belo Horizonte']
+# arrival_location_list = ['São Paulo', 'Rio de Janeiro']
+# departure_date_list = ['27/05/2023', '28/06/2023']
+# result = Teste.scrape(departure_location_list, arrival_location_list, departure_date_list)
 
 # Teste._initialize_driver()
 
