@@ -14,7 +14,7 @@ def main():
     departure_location_list = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte']
     arrival_location_list = ['Curitiba', 'Florianópolis', 'Porto Alegre']
     departure_date_list = ['23/06/2023', '01/06/2023', '03/06/2023']
-    arrival_date_list = ['', '', '']
+    arrival_date_list = ['01/07/2023', '', '']
 
     scraper = ClickBusScraper()
     results = scraper.scrape(

@@ -18,8 +18,11 @@ class ClickBusScraper:
         
     def scrape(self, departure_location_list, arrival_location_list, departure_date_list, arrival_date_list=None):
         self._initialize_driver()
+        
         if arrival_date_list is None:
             arrival_date_list = ['' for _ in range(len(departure_date_list))]
+        elif len(arrival_date_list) != len(departure_date_list):
+            raise ValueError("As listas de datas de chegada e partida devem ter o mesmo tamanho.")
         
         scrapping_results = []
         for departure_location, arrival_location, departure_date, arrival_date in zip(departure_location_list, arrival_location_list, departure_date_list, arrival_date_list):
@@ -63,6 +66,15 @@ class ClickBusScraper:
 
         # Preencher data de partida
         input_departure_date_element.send_keys(departure_date)
+        
+        # Se caso houver um arrival_date específicado
+        if arrival_date:
+            button_text = 'Ida e Volta' # Conferir porque é fácil de mudar esse texto
+            xpath = f'//div[text()="{button_text}"]'
+            self.driver.find_element(By.XPATH, xpath).click()
+            input_arrival_date_element = self.driver.find_element(By.XPATH, '//*[@id="return-date"]')
+            input_arrival_date_element.send_keys(arrival_date)
+
         
         # Clicar no botão de pesquisa
         search_button = self.driver.find_element(By.ID, 'search-box-button')
