@@ -11,10 +11,15 @@ from bus_scrapper_class import ClickBusScraper
 
 
 def main():
-    departure_location_list = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte']
-    arrival_location_list = ['Curitiba', 'Florianópolis', 'Porto Alegre']
-    departure_date_list = ['23/06/2023', '01/06/2023', '03/06/2023']
-    arrival_date_list = ['01/07/2023', '', '']
+    # departure_location_list = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte']
+    # arrival_location_list = ['Curitiba', 'Florianópolis', 'Porto Alegre']
+    # departure_date_list = ['23/06/2023', '01/06/2023', '03/06/2023']
+    # arrival_date_list = ['01/07/2023', '', '']
+    df_scraper_input =  pd.read_excel('busscraper_input.xlsx')
+    departure_location_list = df_scraper_input.departure_location
+    arrival_location_list = df_scraper_input.arrival_location
+    departure_date_list = df_scraper_input.departure_date.dt.strftime("%d/%m/%Y")
+    arrival_date_list = df_scraper_input.arrival_date.dt.strftime("%d/%m/%Y")
 
     scraper = ClickBusScraper()
     results = scraper.scrape(

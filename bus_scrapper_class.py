@@ -1,4 +1,5 @@
 import re
+import pdb
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -28,7 +29,11 @@ class ClickBusScraper:
         for departure_location, arrival_location, departure_date, arrival_date in zip(departure_location_list, arrival_location_list, departure_date_list, arrival_date_list):
             self._search(departure_location, arrival_location, departure_date, arrival_date)
             self.driver.implicitly_wait(10)
-            scrapping_results.append(self._scrape_search_result())          
+            scrape_results = self._scrape_search_result()
+            if not scrape_results:
+                continue
+        
+            scrapping_results.append(scrape_results)          
 
         self._quit_driver()
         
@@ -68,7 +73,8 @@ class ClickBusScraper:
         input_departure_date_element.send_keys(departure_date)
         
         # Se caso houver um arrival_date específicado
-        if arrival_date:
+        # valores nulos não são iguais a eles mesmos no python
+        if arrival_date == arrival_date:
             button_text = 'Ida e Volta' # Conferir porque é fácil de mudar esse texto
             xpath = f'//div[text()="{button_text}"]'
             self.driver.find_element(By.XPATH, xpath).click()
@@ -85,6 +91,10 @@ class ClickBusScraper:
         html = self.driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
         search_results = soup.find(attrs={"data-testid": "search-results"})
+        # Não há resultado na pesquisa
+        if search_results == None:
+            return False
+        
         containers = search_results.find_all(attrs={"data-testid": "search-item-container"})
         results = {
             'company_name': [],
