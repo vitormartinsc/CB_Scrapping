@@ -7,31 +7,57 @@ Este é um projeto de web scraping usando Selenium e BeautifulSoup para extrair 
 - Python 3.7 ou superior
 - ChromeDriver (certifique-se de ter o ChromeDriver instalado e configurado)
 - pandas (instalado automaticamente a partir do requirements.txt)
+- selenium
+- beautifulsoup4
+
+Você pode instalar os pacotes necessários executando o seguinte comando:
+```shell
+pip install -r requirements.txt
+```
 
 ## Instalação
 
-1. Clone o repositório:
+Clone o repositório:
 ```bash
 git clone https://github.com/seu-usuario/clickbus-scraper.git
 ```
 
-2. Navegue até o diretório do projeto:
-```bash
-cd clickbus-scraper
-```
+## Configuração
 
-3. Instale as dependências usando o pip:
-```bash
-pip install -r requirements.txt
-```
+Certifique-se de ter o driver do Selenium adequado para o seu navegador instalado. Atualmente, o projeto está configurado para usar o driver do Google Chrome. Você pode fazer o download do driver em: ChromeDriver - WebDriver for Chrome.
 
-## Como usar
+Coloque o arquivo busscraper_input.xlsx na mesma pasta do arquivo main.py. Certifique-se de que o arquivo Excel tenha a seguinte estrutura:
 
-1. No arquivo main.py, defina as listas `departure_location_list`, `arrival_location_list`, `departure_date_list` e `arrival_date_list` com as informações desejadas.
+| departure_location | arrival_location | departure_date | arrival_date |
+| ------------------ | ---------------- | -------------- | ------------ |
+| São Paulo          | Rio de Janeiro   | 2023-05-25     |              |
+| Rio de Janeiro    | São Paulo        | 2023-05-26     |              |
+| .... | ... | ...  |              |
 
-2. Execute o arquivo main.py para iniciar o processo de scraping
+Preencha as informações das localizações de partida, localizações de chegada e datas de partida. As datas de chegada são opcionais e podem ser deixadas em branco.
+
+## Executando o Scraper
+
+Para executar o scraper, abra o terminal e navegue até o diretório do projeto. Em seguida, execute o seguinte comando:
 ```shell
 python main.py
 ```
+O programa irá iniciar o processo de scraping das informações de passagens de ônibus no site ClickBus. Os resultados serão salvos em um arquivo CSV chamado clickbus_results.csv.
 
-3. Após a conclusão do scraping, um arquivo CSV chamado clickbus_results.csv será gerado no diretório do projeto, contendo os resultados da pesquisa.
+## Arquivo CSV de Resultados
+
+O arquivo CSV de resultados conterá as seguintes informações para cada itinerário:
+
+- Nome da empresa de ônibus
+- Preço promocional (se disponível)
+- Preço sem promoção
+- Horário de partida
+- Horário de retorno
+- Data de retorno (se aplicável)
+- Localização de chegada
+- Localização de partida
+
+Certifique-se de verificar o arquivo CSV gerado após a execução do programa para acessar os resultados obtidos.
+
+
+
