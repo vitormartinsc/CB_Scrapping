@@ -24,7 +24,7 @@ git clone https://github.com/seu-usuario/clickbus-scraper.git
 
 ## Configuração
 
-Certifique-se de ter o driver do Selenium adequado para o seu navegador instalado. Atualmente, o projeto está configurado para usar o driver do Google Chrome. Você pode fazer o download do driver em: ChromeDriver - WebDriver for Chrome.
+Certifique-se de ter o driver do Selenium adequado para o seu navegador instalado. Atualmente, o projeto está configurado para usar o driver do Google Chrome. 
 
 Coloque o arquivo busscraper_input.xlsx na mesma pasta do arquivo main.py. Certifique-se de que o arquivo Excel tenha a seguinte estrutura:
 
