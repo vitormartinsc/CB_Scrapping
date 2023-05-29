@@ -11,24 +11,27 @@ Este é um projeto de web scraping usando Selenium e BeautifulSoup para extrair 
 ## Instalação
 
 1. Clone o repositório:
+```bash
 git clone https://github.com/seu-usuario/clickbus-scraper.git
+```
 
 2. Navegue até o diretório do projeto:
+```bash
 cd clickbus-scraper
+```
 
 3. Instale as dependências usando o pip:
+```bash
 pip install -r requirements.txt
-
+```
 
 ## Como usar
 
-1. Importe a classe `ClickBusScraper`:
+1. No arquivo main.py, defina as listas `departure_location_list`, `arrival_location_list`, `departure_date_list` e `arrival_date_list` com as informações desejadas.
 
-```python
-from clickbus_scraper import ClickBusScraper
+2. Execute o arquivo main.py para iniciar o processo de scraping
+```shell
+python main.py
 ```
-2. Crie uma instância do ClickBusScraper:
 
-```python
-scraper = ClickBusScraper()
-
+3. Após a conclusão do scraping, um arquivo CSV chamado clickbus_results.csv será gerado no diretório do projeto, contendo os resultados da pesquisa.
