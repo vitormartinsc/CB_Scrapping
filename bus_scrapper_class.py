@@ -1,10 +1,13 @@
 import re
+import pdb
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
+
 
 class ClickBusScraper:
     # Atualizar o driver_path de acordo com o caminho local para o chromedriver
@@ -16,24 +19,27 @@ class ClickBusScraper:
         self.price_regex = re.compile(r"\w*price")
         self.hour_regex = re.compile(r"\w*hour")
         
-    def scrape(self, departure_location_list, arrival_location_list, departure_date_list, arrival_date_list=None):
+    def scrape(self, departure_location_list, arrival_location_list, departure_date_list, return_date_list=None):
         self._initialize_driver()
         
-        if arrival_date_list is None:
-            arrival_date_list = ['' for _ in range(len(departure_date_list))]
-        elif len(arrival_date_list) != len(departure_date_list):
+        if len(departure_location_list) != len(arrival_location_list):
+            raise ValueError("As listas de locais de chegada e partida devem ter o mesmo tamanho.")
+        
+        if return_date_list is None:
+            return_date_list = [float('nan') for _ in range(len(departure_date_list))]
+        elif len(return_date_list) != len(departure_date_list):
             raise ValueError("As listas de datas de chegada e partida devem ter o mesmo tamanho.")
         
         scrapping_results = []
-        for departure_location, arrival_location, departure_date, arrival_date in zip(departure_location_list, arrival_location_list, departure_date_list, arrival_date_list):
-            self._search(departure_location, arrival_location, departure_date, arrival_date)
+        for departure_location, arrival_location, departure_date, return_date in zip(departure_location_list, arrival_location_list, departure_date_list, return_date_list):
+            self._search(departure_location, arrival_location, departure_date, return_date)
             self.driver.implicitly_wait(10)
-            scrape_results = self._scrape_search_result()
+            scrape_results = self._scrape_search_result(return_date)
             if not scrape_results:
                 continue
-        
-            scrapping_results.append(scrape_results)          
-
+            scrapping_results += scrape_results
+  
+                
         self._quit_driver()
         
         return scrapping_results
@@ -42,7 +48,20 @@ class ClickBusScraper:
     def _initialize_driver(self):
         if not self.driver:
             self.driver = webdriver.Chrome(executable_path=self.driver_path)
+            return
+        
+        if not self._is_driver_alive():
+            self.driver = webdriver.Chrome(executable_path=self.driver_path)
+            return
 
+    def _is_driver_alive(self):
+        try:
+           self.driver.current_url
+           return True
+        except:
+           return False 
+            
+    
     # Encerrando o chromedriver
     def _quit_driver(self):
         if self.driver:
@@ -56,7 +75,7 @@ class ClickBusScraper:
             self.driver.implicitly_wait(10)
     
     # Realizando a pesquisa dado na página inicial do ClickBus
-    def _search(self, departure_location, arrival_location, departure_date, arrival_date):
+    def _search(self, departure_location, arrival_location, departure_date, return_date):
         self._open_clickbus_site()
         
         # Encontrar elementos de entrada
@@ -71,14 +90,14 @@ class ClickBusScraper:
         # Preencher data de partida
         input_departure_date_element.send_keys(departure_date)
         
-        # Se caso houver um arrival_date específicado
+        # Se caso houver um return_date específicado
         # valores nulos não são iguais a eles mesmos no python
-        if arrival_date == arrival_date:
+        if return_date == return_date:
             button_text = 'Ida e Volta' # Conferir porque é fácil de mudar esse texto
             xpath = f'//div[text()="{button_text}"]'
             self.driver.find_element(By.XPATH, xpath).click()
-            input_arrival_date_element = self.driver.find_element(By.XPATH, '//*[@id="return-date"]')
-            input_arrival_date_element.send_keys(arrival_date)
+            input_return_date_element = self.driver.find_element(By.XPATH, '//*[@id="return-date"]')
+            input_return_date_element.send_keys(return_date)
 
         
         # Clicar no botão de pesquisa
@@ -86,7 +105,9 @@ class ClickBusScraper:
         search_button.click()
         
     # Scraping os resultados da pesquisa
-    def _scrape_search_result(self):
+    def _scrape_search_result(self, return_date=float('nan')):
+        has_return_date = return_date == return_date
+        
         html = self.driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
         search_results = soup.find(attrs={"data-testid": "search-results"})
@@ -101,10 +122,10 @@ class ClickBusScraper:
             'no_promotion_price': [],
             'departure_date': [],
             'departure_time': [],
-            'return_time': [],
-            'return_date': [],
+            'arrival_time': [],
+            'arrival_date': [],
             'arrival_location': [],
-            'departure_location': []
+            'departure_location': [],
         }
         for container in containers:
             # Obter o nome da empresa
@@ -132,13 +153,13 @@ class ClickBusScraper:
             departure_date = datetime.strptime(departure_date_string, "%Y-%m-%d")
             departure_time = departure_element.get_text(strip=True)
 
-            return_element = date_element.find("time", class_="return-time")
-            return_element_list = return_element.get_text(strip=True).split('+')
-            return_time = return_element_list[0]
-            plus_days = int(return_element_list[1][0]) if len(return_element_list) > 1 else 0
+            arrival_element = date_element.find("time", class_="return-time")
+            arrival_element_list = arrival_element.get_text(strip=True).split('+')
+            arrival_time = arrival_element_list[0]
+            plus_days = int(arrival_element_list[1][0]) if len(arrival_element_list) > 1 else 0
 
-            return_date_unformatted = departure_date + timedelta(days=plus_days)
-            return_date = return_date_unformatted.strftime("%Y-%m-%d")
+            arrival_date_unformatted = departure_date + timedelta(days=plus_days)
+            arrival_date = arrival_date_unformatted.strftime("%Y-%m-%d")
 
             # Obter informações de localização
             location_element = container.find(class_=re.compile(r"\w*bus-station"))
@@ -153,13 +174,60 @@ class ClickBusScraper:
             results['promotion_price'].append(promotion_price)
             results['departure_time'].append(departure_time)
             results['departure_date'].append(departure_date)
-            results['return_time'].append(return_time)
-            results['return_date'].append(return_date)
+            results['arrival_time'].append(arrival_time)
+            results['arrival_date'].append(arrival_date)
             results['arrival_location'].append(arrival_location)
             results['departure_location'].append(departure_location)
-            
-        return results
+        
+        results_len = len(results['company_name'])
 
+        if has_return_date:
+            self._change_to_return_options()
+            results_departure = results
+            results_departure['has_return'] = [True for _ in range(results_len)]
+            results_departure['type'] = ['Departure' for _ in range(results_len)]
+            results_return = self._scrape_search_result()[0]
+            results_return_len = len(results_return['company_name'])
+            results_return['has_return'] = [True for _ in range(results_return_len)]
+            results_return['type'] = ['Return' for _ in range(results_return_len)]
+            results = [results_return, results_departure]
+            return results
+
+        else:   
+            results['has_return'] = [False for _ in range(results_len)]
+            results['type'] = ['Departure' for _ in range(results_len)]
+            return [results]
+    
+    def _change_to_return_options(self):
+        select_button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Selecionar')]")
+        select_button.click()
+        #wait = WebDriverWait(self.driver, 10)
+        seat_items = self.driver.find_elements(By.CSS_SELECTOR, '[data-testid="seatmap-item"]')
+        for seat_item in seat_items:
+           seat_number_label = seat_item.find_element(By.CSS_SELECTOR, '.seat-number-label')
+           if seat_number_label.text:
+               try:
+                   seat_item.click()
+                   break
+               except ElementClickInterceptedException:
+                   print("Clique interceptado. Tentando outro elemento...")
+                   continue
+        self._click_continue_booking()
+        self._wait_for_page_load()
+        return True
+    
+    def _wait_for_page_load(self):
+        try:
+            WebDriverWait(self.driver, 10).until(EC.staleness_of(self.driver.find_element(By.XPATH, '//div[contains(text(), "Reservando seu assento")]')))
+            print("Página totalmente carregada. Continue a raspagem.")
+        except TimeoutException:
+            print("Tempo limite de espera excedido. A página pode não ter sido totalmente carregada.")
+
+
+    def _click_continue_booking(self):
+        continue_button = self.driver.find_element(By.CSS_SELECTOR, '.continue-booking')
+        self.driver.execute_script("arguments[0].click();", continue_button)
+        
     def _select_location(self, input_element, location):
         input_element.send_keys(location)
         wait = WebDriverWait(self.driver, 3)
@@ -181,11 +249,22 @@ class ClickBusScraper:
 # departure_date_list = ['27/05/2023', '28/06/2023']
 # result = Teste.scrape(departure_location_list, arrival_location_list, departure_date_list)
 
-# Teste._initialize_driver()
+# # Teste._initialize_driver()
+# Teste = ClickBusScraper()
 
 # departure_location = 'Belo Horizonte'
 # arrival_location = 'Rio de Janeiro'
 # departure_date = '28/06/2023'
-# arrival_date = ''
-# Teste._search(departure_location, arrival_location, departure_date, arrival_date)
-# Teste._scrape_search_result()
+# return_date = '03/07/2023'
+# Teste._search(departure_location, arrival_location, departure_date, return_date)
+# results = Teste._scrape_search_result(return_date)
+
+# bt = a.find_element(By.XPATH, "//button[contains(text(), 'Selecionar')]")
+# bt.click()
+# wait = WebDriverWait(a, 10)
+# bt2 = wait.until(EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Continuar a reserva')]")))
+# bt2.click()
+# wait = WebDriverWait(a, 10)
+# seat_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="seatmap-item"]')))
+# seat_element.click()
+
