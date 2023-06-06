@@ -16,7 +16,7 @@ def main():
     # arrival_location_list = ['Curitiba', 'Florianópolis', 'Porto Alegre']
     # departure_date_list = ['23/06/2023', '01/06/2023', '03/06/2023']
     # return_date_list = ['01/07/2023', '', '']
-    df_scraper_input =  pd.read_excel('busscraper_input_test.xlsx')
+    df_scraper_input =  pd.read_excel('busscraper_input.xlsx')
     departure_location_list = df_scraper_input.departure_location
     arrival_location_list = df_scraper_input.arrival_location
     departure_date_list = df_scraper_input.departure_date.dt.strftime("%d/%m/%Y")
@@ -35,13 +35,8 @@ def main():
     merged_dataframes.to_csv('clickbus_results.csv')
 
 def merge_dataframes(results):
-    dfs = []
-    for idx, result in enumerate(results):
-        new_df = pd.DataFrame(result)
-        new_df['search_id'] = idx + 1
-        dfs.append(new_df)
+    dfs = [pd.DataFrame(result) for result in results]
     return pd.concat(dfs)
-
 
 if __name__ == '__main__':
     main()  

@@ -6,7 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException, NoSuchElementException
 
 
 class ClickBusScraper:
@@ -31,14 +31,18 @@ class ClickBusScraper:
             raise ValueError("As listas de datas de chegada e partida devem ter o mesmo tamanho.")
         
         scrapping_results = []
+        search_id = 1
         for departure_location, arrival_location, departure_date, return_date in zip(departure_location_list, arrival_location_list, departure_date_list, return_date_list):
             self._search(departure_location, arrival_location, departure_date, return_date)
             self.driver.implicitly_wait(10)
             scrape_results = self._scrape_search_result(return_date)
             if not scrape_results:
                 continue
+            for scrape_result in scrape_results:
+                scrape_result_len = len(scrape_result['company_name'])
+                scrape_result['search_id'] = [search_id for _ in range(scrape_result_len)]
             scrapping_results += scrape_results
-  
+            search_id += 1
                 
         self._quit_driver()
         
@@ -182,7 +186,14 @@ class ClickBusScraper:
         results_len = len(results['company_name'])
 
         if has_return_date:
-            self._change_to_return_options()
+            while True:
+                try:
+                    self._change_to_return_options()
+                except (NoSuchElementException, ElementClickInterceptedException):
+                    self.driver.refresh()
+                    continue
+                else:
+                    break
             results_departure = results
             results_departure['has_return'] = [True for _ in range(results_len)]
             results_departure['type'] = ['Departure' for _ in range(results_len)]
@@ -222,7 +233,6 @@ class ClickBusScraper:
             print("Página totalmente carregada. Continue a raspagem.")
         except TimeoutException:
             print("Tempo limite de espera excedido. A página pode não ter sido totalmente carregada.")
-
 
     def _click_continue_booking(self):
         continue_button = self.driver.find_element(By.CSS_SELECTOR, '.continue-booking')
