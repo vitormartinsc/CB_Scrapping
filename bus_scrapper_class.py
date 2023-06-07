@@ -201,7 +201,7 @@ class ClickBusScraper:
                 results['departure_location'].append(departure_location)
                 results['class'].append(class_text)    
         
-            time.sleep(3)
+            time.sleep(0.5)
             while True:
                 try:
                     checkbox_wrapper.click()
