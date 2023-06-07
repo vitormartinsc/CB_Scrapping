@@ -1,5 +1,7 @@
 import re
+import os
 import pdb
+import csv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,9 +20,17 @@ class ClickBusScraper:
         self.company_regex = re.compile(r"\w*company")
         self.price_regex = re.compile(r"\w*price")
         self.hour_regex = re.compile(r"\w*hour")
+        self.class_regex = re.compile(r'\w*service-class')
         
     def scrape(self, departure_location_list, arrival_location_list, departure_date_list, return_date_list=None):
         self._initialize_driver()
+        
+        # Verifique se há um arquivo de progresso salvo
+        try:
+            with open("progress.txt", "r") as progress_file:
+                start_index = int(progress_file.read().strip())
+        except FileNotFoundError:
+            start_index = 0
         
         if len(departure_location_list) != len(arrival_location_list):
             raise ValueError("As listas de locais de chegada e partida devem ter o mesmo tamanho.")
@@ -30,23 +40,75 @@ class ClickBusScraper:
         elif len(return_date_list) != len(departure_date_list):
             raise ValueError("As listas de datas de chegada e partida devem ter o mesmo tamanho.")
         
-        scrapping_results = []
+        scraping_results = []
         search_id = 1
-        for departure_location, arrival_location, departure_date, return_date in zip(departure_location_list, arrival_location_list, departure_date_list, return_date_list):
-            self._search(departure_location, arrival_location, departure_date, return_date)
-            self.driver.implicitly_wait(10)
-            scrape_results = self._scrape_search_result(return_date)
-            if not scrape_results:
-                continue
-            for scrape_result in scrape_results:
-                scrape_result_len = len(scrape_result['company_name'])
-                scrape_result['search_id'] = [search_id for _ in range(scrape_result_len)]
-            scrapping_results += scrape_results
-            search_id += 1
+        
+        # Abra o arquivo no modo de append para escrever os resultados
+        with open("results_search.csv", "a", newline="") as file:
+            writer = csv.writer(file)
+            
+            # Se não houver progresso salvo, escreva o cabeçalho no arquivo
+            if start_index == 0:
+                writer.writerow(['Company Name', 'Search ID', 'Promotion Price', 'No Promotion Price', 'Departure Date',
+                                 'Departure Time', 'Arrival Time', 'Arrival Date', 'Arrival Location', 'Departure Location', 'Class'])
+            
+            # Inicie o loop a partir do índice salvo ou 0 se nenhum progresso for salvo
+            for index in range(start_index, len(departure_location_list)):
+                departure_location = departure_location_list[index]
+                arrival_location = arrival_location_list[index]
+                departure_date = departure_date_list[index]
+                return_date = return_date_list[index]
                 
+                try:
+                    self._search(departure_location, arrival_location, departure_date, return_date)
+                    self.driver.implicitly_wait(10)
+                    scrape_results = self._scrape_search_result(return_date)
+                    if scrape_results:
+                        for scrape_result in scrape_results:
+                            scrape_result_len = len(scrape_result['company_name'])
+                            scrape_result['search_id'] = [search_id for _ in range(scrape_result_len)]
+                        scraping_results += scrape_results
+                        search_id += 1
+                except Exception as e:
+                    # Se ocorrer um erro, salve o índice atual para retomar posteriormente
+                    with open("progress.txt", "w") as progress_file:
+                        progress_file.write(str(index))
+                    
+                    # Escreva os resultados gerados até o momento no arquivo antes de ocorrer o erro
+                    self._write_results_csv(writer, scraping_results)
+    
+                    
+                    raise e
+                    
+            # Escreva os resultados finais gerados no arquivo
+            self._write_results_csv(writer, scraping_results)
+                          
+        # Remova o arquivo de progresso em caso de erro
+        if os.path.exists("progress.txt"):
+            os.remove("progress.txt") 
+            
+        
         self._quit_driver()
         
-        return scrapping_results
+    def _write_results_csv(self, writer, scraping_results):
+     
+        for scrape_result in scraping_results:
+            scrape_result_len = len(scrape_result['company_name'])
+            
+            for i in range(scrape_result_len):
+                writer.writerow([
+                    scrape_result['company_name'][i],
+                    scrape_result['search_id'][i],
+                    scrape_result['promotion_price'][i],
+                    scrape_result['no_promotion_price'][i],
+                    scrape_result['departure_date'][i],
+                    scrape_result['departure_time'][i],
+                    scrape_result['arrival_time'][i],
+                    scrape_result['arrival_date'][i],
+                    scrape_result['arrival_location'][i],
+                    scrape_result['departure_location'][i],
+                    scrape_result['class'][i]
+                ])    
 
     # Iniciando o chromedriver
     def _initialize_driver(self):
@@ -130,6 +192,7 @@ class ClickBusScraper:
             'arrival_date': [],
             'arrival_location': [],
             'departure_location': [],
+            'class': []
         }
         for container in containers:
             # Obter o nome da empresa
@@ -172,6 +235,10 @@ class ClickBusScraper:
             arrival_location_element = location_element.find(class_='station-arrival')
             arrival_location = arrival_location_element.get_text(strip=True)
             
+            # Obter informações da classe
+            class_element = container.find(class_=self.class_regex)
+            class_text = class_element.text
+            
             # Adicionar resultados à estrutura de dados
             results['company_name'].append(company_name)
             results['no_promotion_price'].append(no_promotion_price)
@@ -182,6 +249,7 @@ class ClickBusScraper:
             results['arrival_date'].append(arrival_date)
             results['arrival_location'].append(arrival_location)
             results['departure_location'].append(departure_location)
+            results['class'].append(class_text)
         
         results_len = len(results['company_name'])
 
@@ -247,7 +315,10 @@ class ClickBusScraper:
         primeiro_a_element.click()
         
     def _get_number_from_price(self, price_text):
-        return float(price_text.replace('R$', '').replace('\xa0', '').replace(",", "."))
+        return float(
+            price_text.replace('R$', '').replace('\xa0', '')
+            .replace('.', '').replace(",", ".")
+            )
 
 
 

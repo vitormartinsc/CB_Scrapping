@@ -7,9 +7,8 @@ Created on Fri May 26 12:50:15 2023
 """
 
 import pandas as pd
-import pdb
 from bus_scrapper_class import ClickBusScraper
-
+import pdb
 
 def main():
     # departure_location_list = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte']
@@ -23,20 +22,15 @@ def main():
     return_date_list = df_scraper_input.return_date.dt.strftime("%d/%m/%Y")
 
     scraper = ClickBusScraper()
-    results = scraper.scrape(
+    scraper.scrape(
         departure_location_list,
         arrival_location_list,
         departure_date_list,
         return_date_list
     )
-    pdb.set_trace()
+    df = pd.read_csv("results_search.txt", delimiter="\t")
 
-    merged_dataframes = merge_dataframes(results)
-    merged_dataframes.to_csv('clickbus_results.csv')
-
-def merge_dataframes(results):
-    dfs = [pd.DataFrame(result) for result in results]
-    return pd.concat(dfs)
+    return df
 
 if __name__ == '__main__':
     main()  
