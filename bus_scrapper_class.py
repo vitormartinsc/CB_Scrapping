@@ -1,5 +1,6 @@
 import re
 import pdb
+import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -7,6 +8,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException, NoSuchElementException
+from selenium.webdriver import ActionChains
+
 
 
 class ClickBusScraper:
@@ -112,14 +115,7 @@ class ClickBusScraper:
     def _scrape_search_result(self, return_date=float('nan')):
         has_return_date = return_date == return_date
         
-        html = self.driver.page_source
-        soup = BeautifulSoup(html, 'html.parser')
-        search_results = soup.find(attrs={"data-testid": "search-results"})
-        # Não há resultado na pesquisa
-        if search_results == None:
-            return False
         
-        containers = search_results.find_all(attrs={"data-testid": "search-item-container"})
         results = {
             'company_name': [],
             'promotion_price': [],
@@ -130,60 +126,96 @@ class ClickBusScraper:
             'arrival_date': [],
             'arrival_location': [],
             'departure_location': [],
+            'class': []
         }
-        for container in containers:
-            # Obter o nome da empresa
-            company_element = container.find(class_=self.company_regex)
-            company_name = company_element.get('data-content')
-
-            # Obter preços (tanto de promoção quanto sem promoção)
-            price_element = container.find(class_=self.price_regex)
-            promotion_element = price_element.find('span', {'data-testid': 'is-promotion'})
-            no_promotion_element = price_element.find('span', {'data-testid': 'is-not-promotion'})
-
-            if not promotion_element:
-                promotion_price = None
-            else:
-                promotion_text = promotion_element.text
-                promotion_price = self._get_number_from_price(promotion_text)
+        div_classe = self.driver.find_element(By.XPATH, '//div[h3[contains(text(), "Classe")]]')
+        spans = div_classe.find_elements(By.CSS_SELECTOR, 'span[class*="search-filter-item"]')
+        #pdb.set_trace()
+        for span in spans:
+            class_text = span.text
+            wait = WebDriverWait(self.driver, 10)
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="checkbox-wrapper"]')))
+            checkbox_wrapper = span.find_element(By.CSS_SELECTOR, 'div[data-testid="checkbox-wrapper"]')
+            #ActionChains(self.driver).move_to_element(checkbox_wrapper).click(checkbox_wrapper).perform()            
+            try:
+                checkbox_wrapper.click()
+            except ElementClickInterceptedException:
+                pass
+            html = self.driver.page_source
+            soup = BeautifulSoup(html, 'html.parser')
+            search_results = soup.find(attrs={"data-testid": "search-results"})
+            # Não há resultado na pesquisa
+            if search_results == None:
+                continue
+            containers = search_results.find_all(attrs={"data-testid": "search-item-container"})
+            for container in containers:
+                # Obter o nome da empresa
+                company_element = container.find(class_=self.company_regex)
+                company_name = company_element.get('data-content')
+    
+                # Obter preços (tanto de promoção quanto sem promoção)
+                price_element = container.find(class_=self.price_regex)
+                promotion_element = price_element.find('span', {'data-testid': 'is-promotion'})
+                no_promotion_element = price_element.find('span', {'data-testid': 'is-not-promotion'})
+    
+                if not promotion_element:
+                    promotion_price = None
+                else:
+                    promotion_text = promotion_element.text
+                    promotion_price = self._get_number_from_price(promotion_text)
+                    
+                no_promotion_text = no_promotion_element.get_text(strip=True)
+                no_promotion_price = self._get_number_from_price(no_promotion_text)
                 
-            no_promotion_text = no_promotion_element.get_text(strip=True)
-            no_promotion_price = self._get_number_from_price(no_promotion_text)
-            
-            # Obter informações de data e hora de partida e retorno
-            date_element = container.find(class_=self.hour_regex)
-            departure_element = date_element.find("time", class_="departure-time")
-            departure_date_string = departure_element.get('data-date')
-            departure_date = datetime.strptime(departure_date_string, "%Y-%m-%d")
-            departure_time = departure_element.get_text(strip=True)
-
-            arrival_element = date_element.find("time", class_="return-time")
-            arrival_element_list = arrival_element.get_text(strip=True).split('+')
-            arrival_time = arrival_element_list[0]
-            plus_days = int(arrival_element_list[1][0]) if len(arrival_element_list) > 1 else 0
-
-            arrival_date_unformatted = departure_date + timedelta(days=plus_days)
-            arrival_date = arrival_date_unformatted.strftime("%Y-%m-%d")
-
-            # Obter informações de localização
-            location_element = container.find(class_=re.compile(r"\w*bus-station"))
-            departure_location_element = location_element.find(class_='station-departure')
-            departure_location = departure_location_element.get_text(strip=True)
-            arrival_location_element = location_element.find(class_='station-arrival')
-            arrival_location = arrival_location_element.get_text(strip=True)
-            
-            # Adicionar resultados à estrutura de dados
-            results['company_name'].append(company_name)
-            results['no_promotion_price'].append(no_promotion_price)
-            results['promotion_price'].append(promotion_price)
-            results['departure_time'].append(departure_time)
-            results['departure_date'].append(departure_date)
-            results['arrival_time'].append(arrival_time)
-            results['arrival_date'].append(arrival_date)
-            results['arrival_location'].append(arrival_location)
-            results['departure_location'].append(departure_location)
+                # Obter informações de data e hora de partida e retorno
+                date_element = container.find(class_=self.hour_regex)
+                departure_element = date_element.find("time", class_="departure-time")
+                departure_date_string = departure_element.get('data-date')
+                departure_date = datetime.strptime(departure_date_string, "%Y-%m-%d")
+                departure_time = departure_element.get_text(strip=True)
+    
+                arrival_element = date_element.find("time", class_="return-time")
+                arrival_element_list = arrival_element.get_text(strip=True).split('+')
+                arrival_time = arrival_element_list[0]
+                plus_days = int(arrival_element_list[1][0]) if len(arrival_element_list) > 1 else 0
+    
+                arrival_date_unformatted = departure_date + timedelta(days=plus_days)
+                arrival_date = arrival_date_unformatted.strftime("%Y-%m-%d")
+    
+                # Obter informações de localização
+                location_element = container.find(class_=re.compile(r"\w*bus-station"))
+                departure_location_element = location_element.find(class_='station-departure')
+                departure_location = departure_location_element.get_text(strip=True)
+                arrival_location_element = location_element.find(class_='station-arrival')
+                arrival_location = arrival_location_element.get_text(strip=True)
+                
+                # Adicionar resultados à estrutura de dados
+                results['company_name'].append(company_name)
+                results['no_promotion_price'].append(no_promotion_price)
+                results['promotion_price'].append(promotion_price)
+                results['departure_time'].append(departure_time)
+                results['departure_date'].append(departure_date)
+                results['arrival_time'].append(arrival_time)
+                results['arrival_date'].append(arrival_date)
+                results['arrival_location'].append(arrival_location)
+                results['departure_location'].append(departure_location)
+                results['class'].append(class_text)    
         
+            time.sleep(3)
+            while True:
+                try:
+                    checkbox_wrapper.click()
+                    break
+                except ElementClickInterceptedException:
+                    time.sleep(1)
+                
+
+            
         results_len = len(results['company_name'])
+        
+        # Não apareceu nenhum resultado
+        if not results_len:
+            return False
 
         if has_return_date:
             while True:
