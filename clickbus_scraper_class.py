@@ -1,7 +1,7 @@
 import re
 import os
-import pdb
 import csv
+import pdb
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -23,14 +23,6 @@ class ClickBusScraper:
         self.class_regex = re.compile(r'\w*service-class')
         
     def scrape(self, departure_location_list, arrival_location_list, departure_date_list, return_date_list=None):
-        self._initialize_driver()
-        
-        # Verifique se há um arquivo de progresso salvo
-        try:
-            with open("progress.txt", "r") as progress_file:
-                start_index = int(progress_file.read().strip())
-        except FileNotFoundError:
-            start_index = 0
         
         if len(departure_location_list) != len(arrival_location_list):
             raise ValueError("As listas de locais de chegada e partida devem ter o mesmo tamanho.")
@@ -40,8 +32,19 @@ class ClickBusScraper:
         elif len(return_date_list) != len(departure_date_list):
             raise ValueError("As listas de datas de chegada e partida devem ter o mesmo tamanho.")
         
+        self._initialize_driver()
+        
+        # Verifique se há um arquivo de progresso salvo
+        try:
+           with open("progress.txt", "r") as progress_file:
+               progress_data = progress_file.read().strip().split(',')
+               start_index = int(progress_data[0])
+               search_id = int(progress_data[1])
+        except FileNotFoundError:
+           start_index = 0
+           search_id = 1
+        
         scraping_results = []
-        search_id = 1
         
         # Abra o arquivo no modo de append para escrever os resultados
         with open("results_search.csv", "a", newline="") as file:
@@ -70,14 +73,14 @@ class ClickBusScraper:
                         scraping_results += scrape_results
                         search_id += 1
                 except Exception as e:
+                    pdb.set_trace()
                     # Se ocorrer um erro, salve o índice atual para retomar posteriormente
                     with open("progress.txt", "w") as progress_file:
-                        progress_file.write(str(index))
+                        progress_file.write(f"{index},{search_id}")
                     
                     # Escreva os resultados gerados até o momento no arquivo antes de ocorrer o erro
                     self._write_results_csv(writer, scraping_results)
     
-                    
                     raise e
                     
             # Escreva os resultados finais gerados no arquivo
@@ -253,7 +256,7 @@ class ClickBusScraper:
         
         results_len = len(results['company_name'])
 
-        if has_return_date:
+        if has_return_date and not soup.find_all('span', text='Não há resultados para a viagem de volta'):
             while True:
                 try:
                     self._change_to_return_options()

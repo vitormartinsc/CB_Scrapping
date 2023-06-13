@@ -7,7 +7,7 @@ Created on Fri May 26 12:50:15 2023
 """
 
 import pandas as pd
-from bus_scrapper_class import ClickBusScraper
+from clickbus_scraper_class import ClickBusScraper
 import pdb
 
 def main():
@@ -28,9 +28,8 @@ def main():
         departure_date_list,
         return_date_list
     )
-    df = pd.read_csv("results_search.txt", delimiter="\t")
-
-    return df
-
+    
+    pdb.set_trace()
+    
 if __name__ == '__main__':
     main()  
