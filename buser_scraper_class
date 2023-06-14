@@ -8,25 +8,25 @@ Created on Tue Jun 13 14:52:36 2023
 
 import re
 import os
+import time
 import csv
+import pdb
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException, NoSuchElementException
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException, NoSuchElementException, StaleElementReferenceException
+from custom_selenium_classes import CustomDriver
+
 
 class BuserScraper:
     # Atualizar o driver_path de acordo com o caminho local para o chromedriver
     def __init__(self, driver_path='/usr/local/bin/chromedriver'):
         self.driver_path = driver_path
         self.driver = None
-        # Experessões regulares que serão úteis para encontrar elementos html mais tarde
-        self.company_regex = re.compile(r"\w*company")
-        self.price_regex = re.compile(r"\w*price")
-        self.hour_regex = re.compile(r"\w*hour")
-        self.class_regex = re.compile(r'\w*service-class')
         
     def scrape(self, departure_location_list, arrival_location_list, departure_date_list, return_date_list=None):
         
@@ -122,10 +122,12 @@ class BuserScraper:
     def _initialize_driver(self):
         if not self.driver:
             self.driver = webdriver.Chrome(executable_path=self.driver_path)
-            return
+            self.driver = CustomDriver(self.driver)
+            return 
         
         if not self._is_driver_alive():
             self.driver = webdriver.Chrome(executable_path=self.driver_path)
+            self.driver = CustomDriver(self.driver)
             return
 
     def _is_driver_alive(self):
@@ -147,36 +149,76 @@ class BuserScraper:
         if self.driver.current_url != 'https://www.buser.com.br/':
             self.driver.get('https://www.buser.com.br/')
             self.driver.implicitly_wait(10)
+        # if self.driver.find_element(By.XPATH, "//div[@class='m-wrapper']"):
+        #     close_button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Fechar')]")
+        #     close_button.click()
     
     # Realizando a pesquisa dado na página inicial do Buser
     def _search(self, departure_location, arrival_location, departure_date, return_date):
         self._open_buser_site()
         
-        # Encontrar elementos de entrada
-        input_origin_element = self.driver.find_element(By.XPATH, '//*[@id="origin"]')
-        input_arrival_element = self.driver.find_element(By.XPATH, '//*[@id="destination"]')
-        input_departure_date_element = self.driver.find_element(By.XPATH, '//*[@id="departure-date"]')
-        
-        # Preencher informações de origem e destino
-        self._select_location(input_origin_element, departure_location)
-        self._select_location(input_arrival_element, arrival_location)
+        while True:
+            try:
+                # Encontrar elementos de entrada
+                input_origin_element = self.driver.find_element(By.ID, "origem")
+                input_arrival_element = self.driver.find_element(By.ID, "destino")
+                input_departure_date_element = self.driver.find_element(By.CSS_SELECTOR, 'input[placeholder="Ida"]')
+                
+                # Preencher informações de origem e destino
+                self._select_location(input_origin_element, departure_location, 'origem-list')
+                time.sleep(1)
+                while True:
+                    self._select_location(input_arrival_element, arrival_location, 'destino-list')
+                    arrival_text = input_arrival_element.get_attribute('data-maska-value')
+                    if arrival_text and departure_location.lower() not in arrival_text.lower():
+                        break
+                    else:
+                        input_arrival_element.clear()
 
-        # Preencher data de partida
-        input_departure_date_element.send_keys(departure_date)
+                
+                input_departure_date_element.click()
+                self._select_date(departure_date)
         
-        # Se caso houver um return_date específicado
-        # valores nulos não são iguais a eles mesmos no python
-        if return_date == return_date:
-            button_text = 'Ida e Volta' # Conferir porque é fácil de mudar esse texto
-            xpath = f'//div[text()="{button_text}"]'
-            self.driver.find_element(By.XPATH, xpath).click()
-            input_return_date_element = self.driver.find_element(By.XPATH, '//*[@id="return-date"]')
-            input_return_date_element.send_keys(return_date)
+                # Preencher data de partida
+                #input_departure_date_element.send_keys(departure_date)
+                
+                # Se caso houver um return_date específicado
+                # valores nulos não são iguais a eles mesmos no python
+                if return_date == return_date:
+                    pdb.set_trace()
+                    input_return_date_element = self.driver.find_element(By.CSS_SELECTOR, 'input[placeholder="Ida"]')
+                    input_return_date_element.click()
+                    self._select_date(return_date)
+            
+                # # Clicar no botão de pesquisa
+                search_button = self.driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Buscar"]')
 
+                search_button.click()
+                pdb.set_trace()
+                
+                return True
+            except (StaleElementReferenceException, ElementClickInterceptedException, NoSuchElementException):
+                pdb.set_trace()
+                self._close_mwrapper()
+            
+            
+    def _close_mwrapper(self):
+        m_wrapper = self.driver.find_element(By.XPATH, "//div[@class='m-wrapper']")
+        close_button = m_wrapper.find_element(By.XPATH, "//button[@aria-label='Fechar']")        
+        close_button.click()        
         
-        # Clicar no botão de pesquisa
-        search_button = self.driver.find_element(By.ID, 'search-box-button')
-        search_button.click()
+    def _select_date(self, data):
+        dia, mes, ano = map(int, data.split('/'))
+        data_atual = datetime.now().date()
+        data_desejada = datetime(ano, mes, dia).date()
+        dif_meses = (data_desejada.year - data_atual.year) * 12 + (data_desejada.month - data_atual.month)
+        botao_proximo_mes = self.driver.find_element(By.CSS_SELECTOR, 'button[data-testid="next"]')
+        for _ in range(dif_meses):
+            botao_proximo_mes.click()
+            
+        botao_dia = self.driver.find_element(By.XPATH, f'//button[@data-testid={dia}]')
+        # Clique no botão do dia desejado
+        botao_dia.click()
         
     # Scraping os resultados da pesquisa
     def _scrape_search_result(self, return_date=float('nan')):
@@ -314,17 +356,31 @@ class BuserScraper:
         continue_button = self.driver.find_element(By.CSS_SELECTOR, '.continue-booking')
         self.driver.execute_script("arguments[0].click();", continue_button)
         
-    def _select_location(self, input_element, location):
-        input_element.send_keys(location)
-        wait = WebDriverWait(self.driver, 3)
-        wait.until(EC.presence_of_element_located((By.ID, 'place-input-ul')))
-        sugestoes_div = self.driver.find_element(By.ID, 'place-input-ul')
-        primeiro_a_element = sugestoes_div.find_element(By.TAG_NAME, 'a')
-        primeiro_a_element.click()
-        
+    def _select_location(self, input_element, location, ul_class):
+        while True:
+            try:
+                input_element.send_keys(location)
+                #pdb.set_trace()
+                suggestion_list = WebDriverWait(self.driver, 10).until(
+                    EC.visibility_of_element_located((By.ID, f'{ul_class}'))
+                    )
+                # Clicar na primeira opção da lista
+                first_option = suggestion_list.find_element(By.TAG_NAME, 'li')
+                first_option.click()
+                return True
+            except (StaleElementReferenceException, ElementClickInterceptedException, NoSuchElementException):
+                self._close_mwrapper()
+                
+                
     def _get_number_from_price(self, price_text):
         return float(
             price_text.replace('R$', '').replace('\xa0', '')
             .replace('.', '').replace(",", ".")
             )
 
+test = BuserScraper()
+departure_location = 'Belo Horizonte'
+arrival_location = 'Rio de Janeiro'
+departure_date = '01/07/2023'
+return_date = '01/08/2023'
+test._search(departure_location, arrival_location, departure_date, return_date)
